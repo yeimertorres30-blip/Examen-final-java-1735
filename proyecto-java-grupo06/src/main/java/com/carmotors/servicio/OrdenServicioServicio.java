@@ -6,6 +6,7 @@ import com.carmotors.modelo.CicloOrden;
 import com.carmotors.modelo.OrdenServicio;
 import com.carmotors.modelo.ReservaRepuesto;
 import com.carmotors.modelo.Tecnico;
+import com.carmotors.notificacion.GestorNotificaciones;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -25,9 +26,18 @@ public class OrdenServicioServicio {
     private final EstadoServicioDao estados = new EstadoServicioDao();
     private final TecnicoOrdenDao tecnicos = new TecnicoOrdenDao();
     private final RepuestoOrdenDao repuestos = new RepuestoOrdenDao();
+    private final GestorNotificaciones notificaciones;
+
+    /** Candado para que solo un hilo a la vez ejecute la sección crítica de reserva de stock. */
+    private static final Object CANDADO_RESERVA = new Object();
 
     public OrdenServicioServicio(Conexiones conexiones) {
+        this(conexiones, null);
+    }
+
+    public OrdenServicioServicio(Conexiones conexiones, GestorNotificaciones notificaciones) {
         this.conexiones = java.util.Objects.requireNonNull(conexiones);
+        this.notificaciones = notificaciones;
     }
 
     public int crear(int vehiculo, int tipo, String nombreServicio, String problema,
@@ -121,33 +131,40 @@ public class OrdenServicioServicio {
      * Aparta (reserva) unidades de un repuesto para la orden. El stock NO baja todavía:
      * baja una sola vez, cuando la orden pasa a Completado.
      * Disponible = stock - lo que ya está reservado por otras órdenes.
+     *
+     * Sección crítica protegida con synchronized para evitar race condition
+     * cuando varios técnicos intentan reservar el mismo repuesto al mismo tiempo.
      */
     public void agregarRepuesto(int orden, int repuesto, int cantidad) throws SQLException {
         if (orden <= 0 || repuesto <= 0) throw new IllegalArgumentException("Orden y repuesto deben ser positivos.");
         if (cantidad <= 0) throw new IllegalArgumentException("La cantidad debe ser mayor a cero.");
-        enTransaccion(c -> {
-            String estado = nombreEstado(c, ordenes.buscar(c, orden, true));
-            if (!CicloOrden.admiteRepuestos(estado)) {
-                throw new IllegalArgumentException("Solo se agregan repuestos a órdenes Pendiente o En Proceso. "
-                        + "La orden " + orden + " está en '" + estado + "'.");
-            }
-            RepuestoOrdenDao.RepuestoBloqueado datos = repuestos.bloquear(c, repuesto);
-            if (datos.precioVenta() == null) {
-                throw new IllegalArgumentException("El repuesto '" + datos.nombre() + "' no tiene precio de venta.");
-            }
-            int disponible = datos.stock() - repuestos.totalReservado(c, repuesto);
-            if (cantidad > disponible) {
-                throw new IllegalArgumentException(String.format(
-                        "Stock insuficiente de '%s'. Pediste %d y hay %d disponibles (stock %d, ya reservado %d).",
-                        datos.nombre(), cantidad, Math.max(disponible, 0), datos.stock(), datos.stock() - disponible));
-            }
-            if (repuestos.reservasDe(c, orden).stream()
-                    .anyMatch(reserva -> reserva.getRepuestoId() == repuesto && reserva.estaActiva())) {
-                throw new IllegalArgumentException("Ese repuesto ya está asignado a la orden.");
-            }
-            repuestos.reservar(c, orden, repuesto, cantidad, datos.precioVenta());
-            return null;
-        });
+
+        // Solo un hilo puede entrar aquí a la vez (thread-safe)
+        synchronized (CANDADO_RESERVA) {
+            enTransaccion(c -> {
+                String estado = nombreEstado(c, ordenes.buscar(c, orden, true));
+                if (!CicloOrden.admiteRepuestos(estado)) {
+                    throw new IllegalArgumentException("Solo se agregan repuestos a órdenes Pendiente o En Proceso. "
+                            + "La orden " + orden + " está en '" + estado + "'.");
+                }
+                RepuestoOrdenDao.RepuestoBloqueado datos = repuestos.bloquear(c, repuesto);
+                if (datos.precioVenta() == null) {
+                    throw new IllegalArgumentException("El repuesto '" + datos.nombre() + "' no tiene precio de venta.");
+                }
+                int disponible = datos.stock() - repuestos.totalReservado(c, repuesto);
+                if (cantidad > disponible) {
+                    throw new IllegalArgumentException(String.format(
+                            "Stock insuficiente de '%s'. Pediste %d y hay %d disponibles (stock %d, ya reservado %d).",
+                            datos.nombre(), cantidad, Math.max(disponible, 0), datos.stock(), datos.stock() - disponible));
+                }
+                if (repuestos.reservasDe(c, orden).stream()
+                        .anyMatch(reserva -> reserva.getRepuestoId() == repuesto && reserva.estaActiva())) {
+                    throw new IllegalArgumentException("Ese repuesto ya está asignado a la orden.");
+                }
+                repuestos.reservar(c, orden, repuesto, cantidad, datos.precioVenta());
+                return null;
+            });
+        }
     }
 
     /** Reservas de la orden con su estado: RESERVADO, DESCONTADO o CANCELADO. */
@@ -176,6 +193,9 @@ public class OrdenServicioServicio {
                         + "Para pasarla a Facturado emite la factura en el menú Facturación.");
             }
             aplicar(c, orden, siguiente);
+            if (notificaciones != null) {
+                notificaciones.notificarCambioEstado(orden, actual, siguiente);
+            }
             return siguiente;
         });
     }
@@ -191,6 +211,9 @@ public class OrdenServicioServicio {
                     + "'. Solo se factura cuando está 'Completado'.");
         }
         aplicar(c, orden, CicloOrden.FACTURADO);
+        if (notificaciones != null) {
+            notificaciones.notificarCambioEstado(orden, actual, CicloOrden.FACTURADO);
+        }
     }
 
     private void aplicar(Connection c, int orden, String nuevo) throws SQLException {
@@ -244,6 +267,9 @@ public class OrdenServicioServicio {
                 throw new IllegalArgumentException("Emite la factura desde el menú Facturación.");
             }
             aplicar(c, orden, destino.getNombre());
+            if (notificaciones != null) {
+                notificaciones.notificarCambioEstado(orden, actual, destino.getNombre());
+            }
             return destino;
         });
     }

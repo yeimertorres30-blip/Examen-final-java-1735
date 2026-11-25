@@ -1,0 +1,20 @@
+================================================================================================
+                                 CAR MOTORS - TALLER AUTOMOTRIZ
+                            REPORTE DETALLADO DE ÓRDENES DE SERVICIO
+                                Periodo: 2026-01-01 a 2026-11-25
+                                 Generado: 2026-11-25 07:57:46
+================================================================================================
+ID     Tipo           Servicio                     Estado       Técnico(s)           Recepción          
+------------------------------------------------------------------------------------------------
+1      Preventivo     Cambio de aceite             Entregado    -                    2026-03-20 00:00:00
+2      Preventivo     Cambio de aceite             Entregado    -                    2026-10-05 08:00:00
+3      Correctivo     Revisión de frenos           Facturado    -                    2026-10-12 09:30:00
+4      Correctivo     Cambio de batería            Completado   -                    2026-10-20 14:00:00
+5      Preventivo     Revisión de frenos           En Proceso   -                    2026-11-03 10:00:00
+6      Correctivo     Alineación                   Pendiente    -                    2026-11-10 16:45:00
+7      Preventivo     Mantenimiento                Facturado    -                    2026-11-20 14:55:44
+8      Preventivo     Revisión de frenos           Facturado    Tecnico de prueba A… 2026-11-23 14:57:49
+9      Preventivo     mantenimiento completo       Facturado    -                    2026-11-25 07:10:16
+------------------------------------------------------------------------------------------------
+Total de órdenes: 9
+================================================================================================

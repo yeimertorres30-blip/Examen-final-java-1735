@@ -2,6 +2,7 @@ package com.carmotors.servicio;
 
 import com.carmotors.dao.HistorialClienteDao;
 import com.carmotors.modelo.HistorialVehiculo;
+import com.carmotors.notificacion.GestorNotificaciones;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -10,9 +11,15 @@ import java.util.ArrayList;
 
 public class HistorialClienteServicio {
     private final HistorialClienteDao dao;
+    private final GestorNotificaciones notificaciones;
 
     public HistorialClienteServicio(HistorialClienteDao dao) {
+        this(dao, null);
+    }
+
+    public HistorialClienteServicio(HistorialClienteDao dao, GestorNotificaciones notificaciones) {
         this.dao = dao;
+        this.notificaciones = notificaciones;
     }
 
     public List<HistorialVehiculo> historial(String documento) throws SQLException {
@@ -29,8 +36,16 @@ public class HistorialClienteServicio {
             if (ultimaEntrega != null) {
                 LocalDate fecha = ultimaEntrega.plusMonths(6);
                 if (!fecha.isAfter(fechaConsulta)) {
-                    pendientes.add(new Recordatorio(vehiculo.getNombre(), vehiculo.getEmail(),
-                            vehiculo.getPlaca(), fecha));
+                    Recordatorio aviso = new Recordatorio(vehiculo.getNombre(), vehiculo.getEmail(),
+                            vehiculo.getPlaca(), fecha);
+                    pendientes.add(aviso);
+                    if (notificaciones != null) {
+                        notificaciones.notificarRecordatorio(
+                                aviso.getCliente(),
+                                aviso.getEmail(),
+                                aviso.getPlaca(),
+                                aviso.getFecha().toString());
+                    }
                 }
             }
         }

@@ -28,20 +28,33 @@ import com.carmotors.servicio.RegistroClienteServicio;
 import com.carmotors.servicio.RegistroVehiculoServicio;
 import com.carmotors.vista.MenuClientes;
 import com.carmotors.vista.MenuPrincipal;
+import com.carmotors.notificacion.GestorNotificaciones;
+import com.carmotors.notificacion.NotificacionConsola;
 import java.nio.file.Path;
 
 public class Main {
     public static void main(String[] args) {
+        GestorNotificaciones gestor = new GestorNotificaciones();
+        gestor.agregarObservador(new NotificacionConsola());
+
         RegistroClienteServicio registro = new RegistroClienteServicio(new ClienteDao());
-        HistorialClienteServicio consultas = new HistorialClienteServicio(new HistorialClienteDao());
+        HistorialClienteServicio consultas = new HistorialClienteServicio(new HistorialClienteDao(), gestor);
         ClienteControlador clientes = new ClienteControlador(registro, new RegistroVehiculoServicio(new VehiculoDao()), consultas);
-        OrdenServicioServicio ordenes = new OrdenServicioServicio(ConexionFactory.getInstancia()::abrir);
+        OrdenServicioServicio ordenes = new OrdenServicioServicio(ConexionFactory.getInstancia()::abrir, gestor);
         InventarioProveedorServicio inventario = new InventarioProveedorServicio(new JdbcProveedorDao(),
                 new JdbcRepuestoDao(), new LoteDao(), new EvaluacionProveedorDao(), new ReservaRepuestoDao());
-        ReporteControlador reportes = new ReporteControlador(new ReporteServicio(new ReporteDao()), new FacturaDao());
-        // Las facturas .txt se guardan en la carpeta "facturas" (junto a donde se ejecuta el programa)
+
+        ReporteDao fuenteReportes = new ReporteDao();
+        ReporteControlador reportes = new ReporteControlador(
+                new ReporteServicio(fuenteReportes),
+                new FacturaDao(),
+                fuenteReportes,
+                new JdbcRepuestoDao(),
+                new JdbcProveedorDao(),
+                Path.of("reportes"));
+
         FacturaServicio facturacion = new FacturaServicio(ConexionFactory.getInstancia()::abrir, new FacturaDao(),
-                ordenes, Path.of("facturas"));
+                ordenes, Path.of("facturas"), gestor);
         new MenuPrincipal(new MenuClientes(clientes), new OrdenServicioControlador(ordenes),
                 new MenuInventario(new InventarioControlador(inventario)),
                 new MenuFacturacion(new FacturaControlador(facturacion)), new MenuReportes(reportes)).ejecutar();

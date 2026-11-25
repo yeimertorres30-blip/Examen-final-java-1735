@@ -17,7 +17,8 @@ public class ReporteDao implements FuenteReportes {
 
     @Override
     public List<ServicioReporte> servicios() throws SQLException {
-        String sql = "SELECT s.id, t.nombre AS tipo, s.nombre_servicio, e.nombre AS estado, s.fecha_recepcion "
+        String sql = "SELECT s.id, t.nombre AS tipo, s.nombre_servicio, e.nombre AS estado, "
+                + "s.fecha_recepcion, s.fecha_entrega "
                 + "FROM servicios s "
                 + "LEFT JOIN mantenimiento_tipos t ON t.id = s.mantenimiento_tipo_id "
                 + "LEFT JOIN servicio_estados e ON e.id = s.estado_id "
@@ -27,9 +28,13 @@ public class ReporteDao implements FuenteReportes {
              PreparedStatement ps = conexion.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                lista.add(new ServicioReporte(rs.getInt("id"), rs.getString("tipo"),
-                        rs.getString("nombre_servicio"), rs.getString("estado"),
-                        rs.getObject("fecha_recepcion", LocalDateTime.class)));
+                lista.add(new ServicioReporte(
+                        rs.getInt("id"),
+                        rs.getString("tipo"),
+                        rs.getString("nombre_servicio"),
+                        rs.getString("estado"),
+                        rs.getObject("fecha_recepcion", LocalDateTime.class),
+                        rs.getObject("fecha_entrega", LocalDateTime.class)));
             }
         }
         return lista;

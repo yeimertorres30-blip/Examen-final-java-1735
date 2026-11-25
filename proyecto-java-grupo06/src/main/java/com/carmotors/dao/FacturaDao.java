@@ -118,4 +118,39 @@ public class FacturaDao {
         }
         return new Factura(numero, fecha, buscar(conexion, servicioId), impuestos, total);
     }
+    public List<com.carmotors.servicio.ReporteTexto.LineaVenta> listarVentasEnPeriodo(
+            java.time.LocalDate desde, java.time.LocalDate hasta) throws SQLException {
+        String sql = "SELECT f.id, f.fecha_emision, f.total_repuestos, f.total_mano_obra, f.impuestos, f.total_final, "
+                + "c.nombre AS cliente, v.placa "
+                + "FROM facturas f "
+                + "JOIN servicios s ON s.id = f.servicio_id "
+                + "LEFT JOIN vehiculos v ON v.id = s.vehiculo_id "
+                + "LEFT JOIN clientes c ON c.id = v.cliente_id "
+                + "WHERE DATE(f.fecha_emision) BETWEEN ? AND ? "
+                + "ORDER BY f.fecha_emision, f.id";
+        List<com.carmotors.servicio.ReporteTexto.LineaVenta> lista = new ArrayList<>();
+        try (Connection conexion = ConexionFactory.getInstancia().abrir();
+             PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setObject(1, desde);
+            ps.setObject(2, hasta);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    BigDecimal repuestos = rs.getBigDecimal("total_repuestos");
+                    BigDecimal manoObra = rs.getBigDecimal("total_mano_obra");
+                    if (repuestos == null) repuestos = BigDecimal.ZERO;
+                    if (manoObra == null) manoObra = BigDecimal.ZERO;
+                    BigDecimal subtotal = repuestos.add(manoObra);
+                    lista.add(new com.carmotors.servicio.ReporteTexto.LineaVenta(
+                            rs.getInt("id"),
+                            rs.getObject("fecha_emision", LocalDateTime.class),
+                            rs.getString("cliente"),
+                            rs.getString("placa"),
+                            subtotal,
+                            rs.getBigDecimal("impuestos"),
+                            rs.getBigDecimal("total_final")));
+                }
+            }
+        }
+        return lista;
+    }
 }

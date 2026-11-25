@@ -4,6 +4,7 @@ import com.carmotors.dao.FacturaDao;
 import com.carmotors.modelo.CicloOrden;
 import com.carmotors.modelo.DatosFactura;
 import com.carmotors.modelo.Factura;
+import com.carmotors.notificacion.GestorNotificaciones;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,13 +27,22 @@ public class FacturaServicio {
     private final FacturaDao facturas;
     private final OrdenServicioServicio ordenes;
     private final Path carpeta;
+    private final GestorNotificaciones notificaciones;
 
     public FacturaServicio(OrdenServicioServicio.Conexiones conexiones, FacturaDao facturas,
                            OrdenServicioServicio ordenes, Path carpeta) {
+        this(conexiones, facturas, ordenes, carpeta, null);
+    }
+
+    /** Constructor con notificaciones (Observer). */
+    public FacturaServicio(OrdenServicioServicio.Conexiones conexiones, FacturaDao facturas,
+                           OrdenServicioServicio ordenes, Path carpeta,
+                           GestorNotificaciones notificaciones) {
         this.conexiones = Objects.requireNonNull(conexiones);
         this.facturas = Objects.requireNonNull(facturas);
         this.ordenes = Objects.requireNonNull(ordenes);
         this.carpeta = Objects.requireNonNull(carpeta);
+        this.notificaciones = notificaciones;
     }
 
     /** Cómo quedaría la factura, sin guardar nada. Solo para órdenes Completado. */
@@ -71,6 +81,9 @@ public class FacturaServicio {
                 try { c.rollback(); } catch (SQLException rollback) { e.addSuppressed(rollback); }
                 throw e;
             }
+        }
+        if (notificaciones != null) {
+            notificaciones.notificarFacturaEmitida(orden, factura.getNumero());
         }
         return new FacturaEmitida(factura, escribir(factura));
     }

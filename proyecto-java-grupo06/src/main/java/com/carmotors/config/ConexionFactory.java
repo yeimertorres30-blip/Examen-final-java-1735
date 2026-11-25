@@ -17,7 +17,7 @@ public final class ConexionFactory {
         return DriverManager.getConnection(
                 entorno("CARMOTORS_DB_URL", "jdbc:mysql://localhost:3306/carmotors"),
                 entorno("CARMOTORS_DB_USER", "root"),
-                entorno("CARMOTORS_DB_PASSWORD", ""));
+                entorno("CARMOTORS_DB_PASSWORD", "Cucuta202601"));
     }
 
     private static String entorno(String clave, String valorPredeterminado) {

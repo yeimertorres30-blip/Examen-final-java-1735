@@ -65,7 +65,6 @@ public class ReporteServicio {
     }
 
     /** Preventivo / Correctivo. */
-
     public Map<String, Long> serviciosPorTipo(LocalDate desde, LocalDate hasta) throws SQLException {
         return contar(serviciosDelPeriodo(desde, hasta), ServicioReporte::getTipo);
     }
@@ -103,6 +102,7 @@ public class ReporteServicio {
                 .toList();
     }
 
+
     // ---------- 3. Consumo de repuestos ----------
 
     /** Ordenado de más a menos unidades usadas. */
@@ -126,6 +126,22 @@ public class ReporteServicio {
                         .thenComparing(ConsumoRepuesto::getRepuesto))
                 .toList();
     }
+
+    // ---------- 4. Servicios completados ----------
+
+    public List<ServicioReporte> serviciosCompletados(LocalDate desde, LocalDate hasta) throws SQLException {
+        return serviciosDelPeriodo(desde, hasta).stream()
+                .filter(ReporteServicio::terminado)
+                .sorted(Comparator.comparing(ServicioReporte::getFechaRecepcion))
+                .toList();
+    }
+
+    public List<ServicioReporte> ordenesDelPeriodo(LocalDate desde, LocalDate hasta) throws SQLException {
+        return serviciosDelPeriodo(desde, hasta).stream()
+                .sorted(Comparator.comparing(ServicioReporte::getFechaRecepcion))
+                .toList();
+    }
+
 
     // ---------- Auxiliares ----------
 
